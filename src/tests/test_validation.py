@@ -1,4 +1,4 @@
-"""006 regressions. Each fixture transaction rolls back; rejected calls use savepoints."""
+"""Validation regressions. Fixture transactions roll back; rejected calls use savepoints."""
 import unittest
 import uuid
 import psycopg
@@ -48,6 +48,25 @@ class Validation(unittest.TestCase):
         o = self.accept(e,'acquisition',p)
         obs = self.c.execute('SELECT id FROM api.observation WHERE output_id=%s',[o]).fetchone()[0]
         return t,e,obs,p
+
+    def transfer_holdings(self):
+        # Fresh holdings keep these tests independent of other suites' balances
+        # and outstanding physical commands. All setup uses public RPCs.
+        holdings = []
+        for _ in range(2):
+            e = self.call('open_inventory_task', 'inventory-register@1', str(uuid.uuid4()),
+                          dict(operation='container', spec='tube@1', barcode=str(uuid.uuid4()),
+                               location=str(fid('bloc1')), position=uuid.uuid4().hex), 'w1')
+            o = self.call('inventory_accept', e, 'register', 'register', dict(confirmed=True, evidence='scanned tube'))
+            container = self.c.execute("SELECT payload->>'container' FROM api.task_execution_output WHERE id=%s", [o]).fetchone()[0]
+            e = self.call('open_inventory_task', 'inventory-register@1', str(uuid.uuid4()),
+                          dict(operation='holding', container=container, material=str(fid('bprotein'))), 'w1')
+            o = self.call('inventory_accept', e, 'register', 'register', dict(confirmed=True, evidence='verified holding'))
+            holdings.append(self.c.execute("SELECT payload->>'holding' FROM api.task_execution_output WHERE id=%s", [o]).fetchone()[0])
+        self.call('register_receipt', str(uuid.uuid4()),
+                  dict(supplier='valid', delivery=str(uuid.uuid4()), line='1', lot='L1', coa={},
+                       holding=holdings[0], quantity=10, unit='uL'), 'w1', 'signed receipt')
+        return holdings
 
     def test_01_review_outcome_and_transition_are_positive(self):
         t,e,obs,_ = self.acquisition()
@@ -101,5 +120,45 @@ class Validation(unittest.TestCase):
         key=str(uuid.uuid4()); self.call('open_inventory_task','inventory-register@1',key,i,'w1')
         self.rejects(lambda:self.call('open_inventory_task','inventory-register@1',key,i,None))
         self.rejects(lambda:self.call('open_inventory_task','inventory-register@1',key,None,'w1'))
+
+    def test_05_closed_destination_rejected_at_command_acceptance(self):
+        for close_before_admission in [True, False]:
+            with self.subTest(close_before_admission=close_before_admission):
+                source, destination = self.transfer_holdings()
+                _, correction = self.task('correction@1', {})
+
+                def close():
+                    self.accept(correction, 'correction', dict(type='close_holding', holding=destination))
+
+                if close_before_admission:
+                    close()
+                task = self.call('admit_task', 'transfer@1', 'validation', str(uuid.uuid4()),
+                                 {'items': [dict(key='x', source=source, destination=destination, quantity=1, unit='uL')]})
+                e = self.call('start_task', task, 'validation', str(uuid.uuid4()), 'w1')
+                if not close_before_admission:
+                    close()
+                # Clear setup constraints so rejection cannot be attributed to
+                # an unrelated deferred projection check.
+                self.c.execute('SET CONSTRAINTS ALL IMMEDIATE')
+                self.c.execute('SET CONSTRAINTS ALL DEFERRED')
+                before = self.counts()
+                with self.assertRaisesRegex(psycopg.Error, 'closed transfer destination'):
+                    with self.c.transaction():
+                        self.accept(e, 'command', dict(command_id=str(uuid.uuid4()), protocol='external-fence-v1'))
+                self.assertEqual(before, self.counts())
+                self.assertEqual(self.c.execute("SELECT count(*) FROM api.task_execution_output WHERE execution_id=%s AND port='command'", [e]).fetchone()[0], 0)
+
+    def test_06_intended_use_must_be_nonempty(self):
+        source, _ = self.transfer_holdings()
+        self.assertEqual(self.call('usability', source, 1, 'transfer')['status'], 'Yes')
+        self.assertEqual(self.call('usability', source, 1, 'binding')['status'], 'Unknown')
+        # Invalid intended use must be rejected even when eligibility would
+        # otherwise return No (insufficient balance) or the holding is absent.
+        for holding, quantity in [(source, 1), (source, 11), (str(uuid.uuid4()), 1)]:
+            for intended_use in [None, '', '   ']:
+                with self.subTest(holding=holding, quantity=quantity, intended_use=intended_use):
+                    with self.assertRaisesRegex(psycopg.Error, 'nonempty intended use required'):
+                        with self.c.transaction():
+                            self.call('usability', holding, quantity, intended_use)
 
 if __name__ == '__main__': unittest.main(verbosity=2)

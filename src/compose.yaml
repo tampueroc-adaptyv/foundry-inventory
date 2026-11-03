@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_PASSWORD: modelj
       POSTGRES_DB: modelj
-    ports: ["127.0.0.1:55432:5432"]
+    ports: ["127.0.0.1:${DB_PORT:-55432}:5432"]
     volumes: ["modelj_pg18:/var/lib/postgresql"]
     healthcheck:
       test: [CMD-SHELL, "pg_isready -U postgres -d modelj"]
@@ -12,7 +12,7 @@ services:
       retries: 30
   api:
     image: postgrest/postgrest:v12.2.12
-    ports: ["127.0.0.1:53000:3000"]
+    ports: ["127.0.0.1:${API_PORT:-53000}:3000"]
     environment:
       PGRST_DB_URI: postgres://authenticator:modelj@db:5432/modelj
       PGRST_DB_SCHEMAS: api
