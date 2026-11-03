@@ -1,0 +1,25 @@
+services:
+  db:
+    image: postgres:18
+    environment:
+      POSTGRES_PASSWORD: modelj
+      POSTGRES_DB: modelj
+    ports: ["127.0.0.1:55432:5432"]
+    volumes: ["modelj_pg18:/var/lib/postgresql"]
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -U postgres -d modelj"]
+      interval: 1s
+      retries: 30
+  api:
+    image: postgrest/postgrest:v12.2.12
+    ports: ["127.0.0.1:53000:3000"]
+    environment:
+      PGRST_DB_URI: postgres://authenticator:modelj@db:5432/modelj
+      PGRST_DB_SCHEMAS: api
+      PGRST_DB_ANON_ROLE: anonymous
+      PGRST_JWT_SECRET: modelj-local-test-secret-at-least-32-characters
+    depends_on:
+      db:
+        condition: service_healthy
+volumes:
+  modelj_pg18:
