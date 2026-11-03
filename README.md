@@ -2,28 +2,93 @@
 
 **A Traceable Material & Inventory System for Automated Laboratories**
 
-Engineering design project prepared for Adaptyv Bio.
+Engineering design submission for Adaptyv Bio.
 
 ## Overview
 
-Foundry Inventory explores how to model and maintain trustworthy material inventory in a high-throughput protein characterization laboratory.
+Foundry Inventory is a PostgreSQL-backed design and implementation for tracking scientific materials in a high-throughput protein characterization laboratory.
 
-The design focuses on scientific identity, physical containment, quantity accounting, provenance, operational eligibility and traceability.
+The central challenge is not simply knowing how much material exists. It is maintaining a trustworthy account of **what exists, where it is, whether it can be used, how it got there, and what happened when an operation failed or was corrected**.
 
-## Repository Structure
-
-| Path | Purpose |
-|---|---|
-| `docs/motivation.md` | Engineering approach and design rationale |
-| `docs/decisions/` | Architecture Decision Records (ADRs) |
-| [docs/diagrams/README.md](docs/diagrams/README.md) | Conceptual, relational and transfer-recovery diagrams (PNG previews and editable sources) |
-| [docs/diagrams/appendix/foundry-inventory.excalidraw](docs/diagrams/appendix/foundry-inventory.excalidraw) | Complete physical ERD and retained diagram reference |
-| `docs/whitepapers/` | Formal domain specifications |
-| `src/` | PostgreSQL schema and implementation |
+The system separates scientific identity, physical containment, inventory accounting, and operational execution. It uses immutable records and transactional operations to preserve traceability and enforce correctness under retries, partial execution, and historical correction.
 
 ## Architecture
 
-_To be completed._
+The design is organized around several core principles:
+
+| Principle | Design |
+|---|---|
+| **Scientific identity** | Materials are distinct from their physical containers and accountable holdings. |
+| **Inventory accounting** | Immutable, balanced movements establish quantity history; balances are derived projections. |
+| **Physical containment** | Containers, locations, and placements describe where material resides independently of its scientific identity. |
+| **Provenance** | Scientific derivation is distinct from physical transfer, allowing supported transformations to retain traceable origins. |
+| **Operational eligibility** | Recorded quantity does not imply usability. QC, expiration, restrictions, and intended use govern eligibility. |
+| **Execution and effects** | Intended work, actual execution, accepted evidence, and committed inventory consequences are separate concerns. |
+| **Historical integrity** | Corrections preserve earlier records instead of silently rewriting them. |
+
+The underlying design follows a specification-driven approach: stable relational structures enforce identity and accounting guarantees, while versioned contracts and governed JSONB accommodate variation between laboratory operations.
+
+PostgreSQL serves as the transactional authority for the implemented inventory domain.
+
+### Design Artifacts
+
+The architecture is documented at three complementary levels:
+
+- **[Formal specifications](docs/whitepapers/):** Define the domain semantics, state transitions, and invariants.
+- **[Architecture Decision Records](docs/decisions/):** Explain architectural choices, alternatives, and trade-offs.
+- **Implementation and tests:** Demonstrate which guarantees are enforced by the delivered PostgreSQL system.
+
+See [Architecture Diagrams](docs/diagrams/README.md) for visual representations of the conceptual model, relational schema, and transfer-recovery behavior.
+
+## Implementation and Validation
+
+The implementation uses PostgreSQL, with transactional handlers responsible for validating and committing inventory operations.
+
+It includes:
+
+- Versioned specifications and governed operational contracts.
+- Material, container, location, and holding identities.
+- Inventory registration and receipt operations.
+- Balanced quantity movements and transfer accounting.
+- Execution records, accepted outputs, and effect commitment.
+- Selected provenance, eligibility, correction, and reconciliation mechanisms.
+- Transactional guards, concurrency protection, and idempotency.
+- Tests covering normal operations, invalid transitions, duplicate requests, failure handling, and recovery.
+
+The implementation is organized as ordered SQL migrations, supported by development fixtures, integration tests, and a containerized environment.
+
+### Running Locally
+
+With Docker Compose and Python 3 installed, run from the repository root:
+
+```bash
+cd src && ./scripts/test.sh
+```
+
+The test script starts the PostgreSQL and API services, initializes the database, creates a virtual environment, installs test dependencies, and runs the integration tests.
+
+**Warning:** Both `scripts/test.sh` and `scripts/reset.sh` recreate the demonstration database, destroying its existing data. To initialize the environment without running tests, run `./scripts/reset.sh` from `src/`.
+
+Refer to the scripts and Compose configuration for environment variables, port overrides, and database initialization behavior.
+
+## Scope and Limitations
+
+The whitepapers and ADRs describe a broader operational model than the bounded implementation delivered for this assignment.
+
+The implementation focuses on trustworthy inventory accounting and traceable laboratory operations rather than attempting to build a complete LIMS or workflow orchestration platform.
+
+The principal boundaries are:
+
+- **Quality:** QC-gated eligibility and scientific invalidation are supported. Initial QC approvals are seeded rather than established through a complete public QC workflow.
+- **Material production:** Single-source reconstitution and provenance are supported. Generalized multi-source composition and incremental preparation are outside the implemented slice.
+- **Specification evolution:** Immutable published versions and explicit bindings are supported; existing entities cannot currently be rebound.
+- **Corrections:** Selected movement replacement and physical reconciliation are supported. Generalized reversal and correction of incorrectly identified containers are not implemented.
+- **Expiration:** Explicit holding-level expiration cutoffs are supported. Environmental exposure evaluation and public cutoff assignment are deferred.
+- **Concurrency:** The implementation deliberately favors a simple shared advisory-lock boundary over fine-grained concurrent execution.
+
+These are implementation boundaries, not claims that the corresponding domain problems are unimportant.
+
+Experiment planning, procurement, reservations, and scheduling are also outside the assignment's inventory authority.
 
 ## Development Methodology
 
@@ -55,25 +120,3 @@ The assignment subsequently provided concrete inventory requirements and a bindi
 **Guiding principle:** Model the domain and its state transformations first; choose the database representation afterward. The schema should express the operational ontology and preserve its invariants, not define them by accident.
 
 For the detailed reasoning behind the architecture, see [Engineering Approach & Design Rationale](docs/motivation.md).
-
-## Implementation & Validation
-
-_To be completed._
-
-## Scope and Limitations
-
-### Implementation Boundaries
-
-The formal specifications and ADRs describe a broader operational model than the bounded PostgreSQL implementation delivered here.
-
-The implemented slice demonstrates material and container identity, inventory movements, execution and effect separation, provenance for supported transformations, transactional accounting, idempotency, and selected historical corrections.
-
-The following capabilities are intentionally limited:
-
-- **Quality:** QC-gated eligibility and scientific invalidation are supported; initial QC approvals are seeded rather than established through a complete public QC workflow.
-- **Material production:** Single-source reconstitution and provenance are supported; multi-source composition and incremental preparation are not implemented.
-- **Specifications:** Published versions and explicit bindings are supported; existing entities cannot currently be rebound.
-- **Corrections:** Quantity replacement is supported for selected movement types; generalized reversal and correction of incorrectly identified containers are not implemented.
-- **Expiration:** Explicit holding-level expiration cutoffs are supported; environmental exposure evaluation and public cutoff assignment are deferred.
-
-These boundaries distinguish the implemented demonstration from the broader domain contracts described in the whitepapers.
