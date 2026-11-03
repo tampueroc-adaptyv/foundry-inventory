@@ -16,7 +16,8 @@ The design focuses on scientific identity, physical containment, quantity accoun
 |---|---|
 | `docs/motivation.md` | Engineering approach and design rationale |
 | `docs/decisions/` | Architecture Decision Records (ADRs) |
-| `docs/data_models.excalidraw` | Conceptual and relational data models |
+| [docs/diagrams/README.md](docs/diagrams/README.md) | Conceptual, relational and transfer-recovery diagrams (PNG previews and editable sources) |
+| [docs/diagrams/appendix/foundry-inventory.excalidraw](docs/diagrams/appendix/foundry-inventory.excalidraw) | Complete physical ERD and retained diagram reference |
 | `docs/whitepapers/` | Formal domain specifications |
 | `src/` | PostgreSQL schema and implementation |
 
@@ -61,4 +62,18 @@ _To be completed._
 
 ## Scope and Limitations
 
-_To be completed._
+### Implementation Boundaries
+
+The formal specifications and ADRs describe a broader operational model than the bounded PostgreSQL implementation delivered here.
+
+The implemented slice demonstrates material and container identity, inventory movements, execution and effect separation, provenance for supported transformations, transactional accounting, idempotency, and selected historical corrections.
+
+The following capabilities are intentionally limited:
+
+- **Quality:** QC-gated eligibility and scientific invalidation are supported; initial QC approvals are seeded rather than established through a complete public QC workflow.
+- **Material production:** Single-source reconstitution and provenance are supported; multi-source composition and incremental preparation are not implemented.
+- **Specifications:** Published versions and explicit bindings are supported; existing entities cannot currently be rebound.
+- **Corrections:** Quantity replacement is supported for selected movement types; generalized reversal and correction of incorrectly identified containers are not implemented.
+- **Expiration:** Explicit holding-level expiration cutoffs are supported; environmental exposure evaluation and public cutoff assignment are deferred.
+
+These boundaries distinguish the implemented demonstration from the broader domain contracts described in the whitepapers.
