@@ -1,0 +1,36 @@
+# OS
+.DS_Store
+Thumbs.db
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Build and temporary files
+dist/
+build/
+tmp/
+*.log
+
+# Local database files
+*.sqlite
+*.sqlite3
+
+# Excalidraw backups
+*.excalidraw.bak
