@@ -52,7 +52,7 @@ During SQL reconciliation, I found that required JSONB values could bypass check
 
 I also chose UUIDv7. From previous experience, roughly time-ordered identifiers have been useful when debugging distributed workflows and correlating records across components. PostgreSQL 18's native support made that a straightforward choice.
 
-The common Task model introduces validation overhead, more complex queries and potentially write amplification. The initial shared advisory-lock strategy also favors correctness over concurrency. These are initial trade-offs, not permanent commitments: specialize transfer paths, indexes or projections when measured throughput and contention justify it.
+The polymorphic Task model has a cost: receiving, plate transfers and scientific analysis share machinery despite different read/write patterns. That introduces validation overhead, polymorphic indexes, more complex queries and potentially write amplification. The initial shared advisory-lock strategy also favors correctness over concurrency. These are initial trade-offs, not permanent commitments: specialize transfer paths, indexes or projections when measured throughput and contention justify it.
 
 ## 5. Corrections without rewriting history
 
