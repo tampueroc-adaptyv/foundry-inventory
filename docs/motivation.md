@@ -2,262 +2,78 @@
 
 *Inventory management for a high-throughput protein characterization laboratory*
 
-## 1. Approach
+## 1. Experience that informed the design
 
-I approached this assignment by combining experience from logistics and semiconductor manufacturing with research into wet-lab operations and the specific requirements of the binding characterization workflow.
-
-My starting point was not a particular database schema or architectural pattern. It was a set of operational questions informed by systems I had previously worked with:
-
-- How do we maintain trustworthy inventory quantities when physical operations can fail or be retried?
-- How do we distinguish intended work from what actually happened?
-- How do we accommodate operational exceptions and retrospective corrections without losing history?
-- How do we preserve evidence when large instrument datasets can be interpreted in different ways?
-- How do we support evolving procedures without continually redesigning the database?
-
-These questions guided the initial design. The assignment's scientific and physical inventory requirements determined the resulting domain model.
-
-## 2. Experience that informed the design
+I started exploring Adaptyv's laboratory operations after my initial conversation with Theo, before receiving the inventory assignment. My experience in logistics and semiconductor testing gave me a few starting questions about inventory correctness, execution failures, and historical corrections.
 
 ### Inventory correctness from logistics
 
-My experience in warehousing, fulfillment and last-mile operations gave me a baseline for inventory accounting and transactional correctness.
+My experience in warehousing, fulfillment and last-mile operations taught me to separate inventory movements from balances, handle duplicate operations and distinguish system records from physical reality.
 
-I was already familiar with the importance of separating inventory movements from balances, handling duplicate operations, preserving auditability and distinguishing system records from physical reality.
-
-This influenced the decision to use an immutable double-entry ledger, with `MaterialMovement` and `MaterialPosting` as authoritative records and `MaterialBalance` as a transactionally maintained, rebuildable projection.
-
-The diagram below shows how the relational model supports quantity accounting and traceability. I rely on database constraints and governed operations to preserve the accounting invariants.
+This informed the immutable double-entry ledger: `MaterialMovement` and `MaterialPosting` are authoritative, while `MaterialBalance` is a transactionally maintained, rebuildable projection.
 
 [![Accounting & Traceability — authoritative ledger records and rebuildable balances](diagrams/02-accounting-traceability.png)](diagrams/02-accounting-traceability.png)
 
-I had also experienced the limitations of operational software firsthand. In one warehouse system, querying inventory by lot and expiration date became problematic, leading us to use a workaround involving sink accounts.
-
-That experience reinforced the importance of accommodating operational exceptions and evolving information requirements. It also highlighted the need to distinguish flexibility in accounting operations from flexibility in accounting correctness.
-
-In this design, new counterpart-account types, governed adjustments and read projections can be introduced without allowing operators to arbitrarily edit quantities or rewrite historical postings.
-
-The accounting invariants remain fixed even when operational needs change.
+I also experienced the limitations of operational software firsthand. In one warehouse system, querying inventory by lot and expiration date became problematic, leading us to use a workaround involving sink accounts. That reinforced an important distinction: operations need flexibility, but accounting correctness should not be negotiable. New account types, governed adjustments and read projections should not require editing quantities or rewriting history.
 
 ### Fault-tolerant experiments from semiconductor testing
 
-At a fabless semiconductor company, I worked with an internal laboratory used to test sub-lots.
+At a fabless semiconductor company, I worked with an internal laboratory used to test sub-lots. Instrument failures, repeated measurements, R&D outside established procedures and retrospective corrections were normal.
 
-This gave me direct exposure to experimental workflows, instrument execution failures, fault-tolerant result tracking and the practical difference between a defined procedure and its actual execution.
+That experience taught me to preserve what was intended, attempted, observed and subsequently corrected. It directly informed the separation between `Task`, `TaskExecution`, `TaskExecutionOutput`, `Observation` and `Assessment`.
 
-Operational exceptions were normal. Test engineers sometimes performed R&D workflows outside established production procedures, repeated measurements or discovered that an earlier operational record required correction.
+Instruments also produced large datasets that could be postprocessed in multiple ways. A failed analysis did not necessarily require repeating the measurement. Here, an Observation preserves accepted measurement evidence and its acquisition context; an Assessment records an interpretation under a versioned scientific contract. New interpretations need not duplicate raw data or overwrite earlier conclusions.
 
-I learned that a system needs to preserve what was intended, what was attempted, what was observed and what was subsequently corrected.
+## 2. Adapting those lessons to wet-lab operations
 
-I also encountered instruments producing large measurement datasets that could be postprocessed in multiple ways.
+I did not assume that logistics or manufacturing identity models would transfer directly to protein characterization. I read Adaptyv's parSEQ technical report and explored Benchling to better understand biological identity, preparations, samples and containers.
 
-The raw measurement might remain unchanged while different analysis methods produced different results. A failed analysis did not necessarily require the instrument measurement to be repeated.
+That research helped establish a foundational distinction: **a scientific Material, a physical Container and the inventory held within it are different identities.** Aliquoting a preparation into several wells need not create new scientific preparations; a meaningful transformation may create a new Material without changing containers.
 
-These experiences directly informed the separation between `Task`, `TaskExecution`, `TaskExecutionOutput`, `Observation` and `Assessment`.
+The assignment's binding workflow provided concrete operations against which to test those distinctions.
 
-## 3. Developing a wet-lab mental model
+## 3. A shared operational model
 
-Although I had worked with physical inventory and manufacturing operations, I did not assume their identity models would transfer directly to a protein characterization laboratory.
-
-I read Adaptyv's parSEQ technical report to better understand the context of high-throughput biological workflows and the importance of relating biological identity to experimental results.
-
-I also explored Benchling to develop a mental model of how scientific entities and their relationships might be represented in wet-lab software.
-
-That research was particularly useful for thinking about the distinction between biological identity, preparation identity, samples, containers and accountable physical holdings.
-
-It helped establish a foundational modeling decision:
-
-**A scientific Material, a physical Container and the inventory held within that Container are different identities.**
-
-For example, aliquoting a protein preparation into multiple wells does not necessarily create multiple new scientific preparations. Conversely, a scientifically meaningful transformation may produce a new Material identity even when the physical container is unchanged.
-
-The system must preserve these distinctions because both inventory accounting and scientific provenance depend on them.
-
-The binding workflow supplied with the assignment then provided concrete operations against which to test the model.
-
-## 4. Deriving the specification-driven architecture
-
-The laboratory performs heterogeneous operations: receiving materials, reconstituting DNA, diluting samples, expressing proteins, transferring quantities between wells, acquiring measurements and interpreting experimental results.
-
-These operations differ substantially in their scientific meaning and physical consequences.
-
-However, they share a recurring operational structure:
+Despite their different physical and scientific consequences, these operations can be described through the same sequence:
 
 **Declared inputs → intended work → actual execution → accepted outcomes → validated consequences.**
 
-I chose to represent this shared structure through versioned specifications and execution records.
+Versioned `TaskSpecification` records define permitted inputs, outputs, lifecycle conditions and effects. Tasks bind these contracts to resources; executions record attempts; immutable output manifests preserve accepted outcomes, including partial success and uncertainty.
 
-A `TaskSpecification` describes an operation's permitted inputs, outputs, lifecycle conditions and effects. A `Task` binds the intended operation to concrete resources and dependencies. `TaskExecution` records attempts, while immutable `TaskExecutionOutput` manifests preserve accepted outcomes, including partial success, failure and uncertainty.
+Internally, workflows reuse this machinery as composite Tasks, while remaining first-class API concepts. This avoids a parallel persistence model at the cost of more involved workflow queries and validation. An external scheduler initiates execution attempts; this is a foundation for bounded workflows, not a general-purpose orchestration engine.
 
-I represent workflows internally as composite Tasks governed by composite TaskSpecifications, while `Workflow` and `WorkflowSpecification` remain first-class concepts at the API layer. This reuses identity, execution, immutable output, dependency and provenance machinery rather than creating a parallel workflow persistence model. Workflow-specific validation and queries become more involved, which I accept initially; specialized views, projections or persistence can follow when demonstrated workloads justify them.
+Task identity, API retry identity and semantic Effect identity are distinct. Identical Tasks may be legitimate experimental replicates, while accepting the same delivery twice is not. Specifications therefore declare the intended semantic uniqueness policy and scope; not every scope is implemented and tested.
 
-An operator or external system can initiate a workflow, while an external scheduler initiates individual `TaskExecution` attempts. Dependencies are represented through governed Task inputs and accepted upstream outputs; this is a foundation for bounded workflows, not an implemented general-purpose orchestration engine.
+## 4. PostgreSQL, governed JSONB and trade-offs
 
-An execution completing successfully does not automatically mean its Task is scientifically complete, and a failed execution does not invalidate physical effects that actually occurred.
+Having used relational and non-relational databases, I wanted to accommodate changing procedures without weakening inventory guarantees. **Relational structures protect stable identities and invariants; governed JSONB carries variable operational and scientific contracts.** Immutable specification versions define payload requirements, and trusted PostgreSQL handlers validate acceptance and consequences. Correctness-critical relationships remain relational.
 
-I also distinguish Task identity, retry identity and semantic Effect identity. Two Tasks with identical specifications and inputs may be intentional experimental replicates. Conversely, accepting the same supplier delivery or authorizing the same physical consequence twice may be invalid even across different Tasks or workflows. Deduplicating API retries is not the same as preventing duplicate real-world Effects.
+During SQL reconciliation, I found that required JSONB values could bypass checks because PostgreSQL comparisons involving NULL return UNKNOWN. Acceptance handlers must positively establish preconditions: missing, null or malformed values cannot satisfy a contract.
 
-My architectural choice is for the governing TaskSpecification to declare the semantic uniqueness policy and its scope: Task-local, Workflow-local, Workcell-local, Site-local or Tenant-global. The scope together with the semantic consequence identity determines which operations conflict at Effect acceptance, protecting inventory correctness without suppressing legitimate replicates. This is the intended contract, not a claim that every scope is already implemented and tested.
+I also chose UUIDv7. From previous experience, roughly time-ordered identifiers have been useful when debugging distributed workflows and correlating records across components. PostgreSQL 18's native support made that a straightforward choice.
 
-### Separating evidence from interpretation
+The common Task model introduces validation overhead, more complex queries and potentially write amplification. The initial shared advisory-lock strategy also favors correctness over concurrency. These are initial trade-offs, not permanent commitments: specialize transfer paths, indexes or projections when measured throughput and contention justify it.
 
-Scientific evidence introduces another important distinction.
+## 5. Corrections without rewriting history
 
-An instrument may produce a single large dataset containing measurements for an entire plate. That dataset can support many independently meaningful scientific conclusions.
+Corrections are governed operations, not database maintenance. New measurements and Assessments can revise scientific conclusions while preserving earlier evidence. Inventory corrections use attributable compensating or replacement postings.
 
-I therefore separated `Observation` from `Assessment`.
-
-An Observation identifies accepted measurement evidence, including its acquisition context, immutable artifact and exact dataset-member relationships.
-
-An Assessment represents an interpretation under a particular versioned scientific contract.
-
-The same Observation may support multiple Assessments, including interpretations produced later using different methods.
-
-This avoids duplicating raw measurements or rewriting previous conclusions when scientific understanding changes.
-
-## 5. Why PostgreSQL and governed JSONB?
-
-Having used both relational and non-relational databases, I was conscious of the tension between stable schemas and organically evolving operational requirements.
-
-Laboratory procedures can change as instruments, scientific methods and operational practices evolve. Modeling every possible procedure-specific field as a dedicated relational structure risks frequent migrations and increasingly awkward abstractions.
-
-At the same time, inventory accounting, identity, provenance and concurrent authorization require strong transactional guarantees.
-
-I therefore chose a hybrid approach.
-
-**The relational model protects stable identities and invariants. Governed JSONB accommodates variability in operational and scientific contracts.**
-
-Immutable specification versions define the required structure and semantics of JSONB payloads, including input/output roles, cardinalities and permitted dependencies.
-
-Trusted PostgreSQL handlers validate these contracts and enforce their consequences.
-
-During SQL reconciliation, I found that required JSONB values could sometimes bypass validation because PostgreSQL comparisons involving NULL return UNKNOWN rather than TRUE or FALSE. This mattered particularly for scientific approval transitions and physical command protocols. The lesson was to make trusted acceptance handlers positively establish required preconditions: missing, null, malformed or ambiguous values cannot count as satisfying a contract.
-
-The specifications are not arbitrary executable programs, and JSONB is not a replacement for referential integrity. Correctness-critical relationships are indexed and validated through relational structures.
-
-This approach lets operation-specific contracts evolve without requiring every new procedure to become a new family of tables.
-
-I also went with UUIDv7 for generated IDs. From previous experience, roughly time-ordered identifiers have come in clutch when debugging distributed workflows and correlating records across different components of a system. It's a small implementation choice, but one I've learned to appreciate. PostgreSQL 18 now supports UUIDv7 natively, so there was little reason not to use it. For related informal reading, there's also this [Hacker News discussion](https://news.ycombinator.com/item?id=50211746).
-
-### Acknowledging polymorphism's cost
-
-I recognize that using a common Task model for heterogeneous operations introduces trade-offs.
-
-Receiving, high-volume plate transfers, instrument acquisition, scientific analysis and workflow coordination have different read/write patterns.
-
-A shared model may introduce validation overhead, write amplification, polymorphic indexes and more complex queries.
-
-I consider that an acceptable initial trade-off within the assignment's scope, not a permanent architectural commitment.
-
-Once real workload data is available, particularly throughput, contention, query latency and execution cardinality, high-pressure operations can be specialized.
-
-For example, plate transfers might require optimized settlement paths, while scientific analysis may benefit from dedicated indexes or projections.
-
-The common contracts and historical provenance can remain stable even if their internal implementations evolve.
-
-The initial shared advisory-lock strategy is another explicit correctness-versus-concurrency trade-off. It simplifies the first implementation but should be revisited if measured contention becomes significant.
-
-**My intention is to establish reliable shared semantics first and specialize based on operational evidence, rather than anticipate every future bottleneck.**
-
-## 6. Corrections as ordinary, governed operations
-
-The assignment explicitly mentions failed QC, incorrect records, reruns and tracing downstream materials affected by problematic batches.
-
-I wanted corrections to be part of the operational model rather than exceptional database maintenance.
-
-A new measurement Task can acquire additional evidence. A subsequent interpretation Task can produce a new Assessment that confirms, revises or explicitly supersedes an earlier conclusion.
-
-The original evidence and interpretation remain immutable.
-
-Likewise, inventory corrections use attributable compensating or replacement postings rather than modifying historical ledger entries.
-
-The example below illustrates why I separate execution outcomes from inventory consequences: a requested transfer of 20 µL has an uncertain outcome, and the execution is recorded as failed. Later evidence confirms that 12 µL physically moved; the ledger records that confirmed quantity without rewriting the historical execution outcome.
+This matters when execution status and physical reality diverge. A transfer requested for 20 µL may fail with an uncertain outcome; later evidence may confirm that 12 µL moved. The ledger records the confirmed quantity without rewriting the failed execution.
 
 [![Failure-Safe Transfer — late confirmation of 12 µL after a failed execution](diagrams/03-transfer-recovery.png)](diagrams/03-transfer-recovery.png)
 
-Failure does not imply physical rollback. For retry safety, I distinguish API idempotency from repeating a laboratory action: deduplicating a request does not make another physical transfer safe. The diagram shows separate database transactions around the laboratory action, not one transaction spanning the workflow.
+Failure does not imply physical rollback, and API idempotency does not make repeating a laboratory action safe. The database transactions surround the physical action rather than span it. Likewise, a revised Assessment may change a material's usability without changing its historical movements.
 
-Scientific corrections and inventory corrections are related but distinct.
+## 6. Workcell, site and tenant boundaries
 
-A corrected scientific Assessment may affect whether downstream material is currently usable without changing the fact that a historical physical transfer occurred.
+My manufacturing experience made the **workcell** a useful grouping for Tasks, operators, instruments and accessible resources. Execution history could eventually support capacity and utilization analysis, but reliable optimization requires additional operational measurements.
 
-This distinction supports both trustworthy auditing and practical recovery from operational mistakes.
+The London laboratory expansion also informed explicit **site** identity. Customer-facing experimental intent should be separable from the facility performing it. Site identity preserves custody boundaries; it does not itself implement cross-site logistics or scheduling.
 
-## 7. Workcell, site and tenant boundaries
+My experience building operational systems also suggested a possible **tenant** boundary: the software might eventually have value independently of the physical service. This is a product possibility, not a claim about Adaptyv's plans. Organizational ownership, physical custody and execution capacity are distinct concerns; full multi-tenant security and distributed operations require further implementation and verification.
 
-I also considered three scopes from the beginning because they have different operational and strategic implications.
+## 7. Scope and objective
 
-### Workcell: operational capacity
+This is an inventory foundation, not a complete LIMS, ELN or orchestration platform. Dedicated models for every operation would duplicate common mechanisms; a generic rules engine would add complexity beyond the assignment. Versioned declarative specifications with explicit trusted handlers are the middle ground.
 
-From my manufacturing experience and wet-lab research, I see the workcell as a useful abstraction for grouping Tasks, operators, instruments and accessible physical resources.
-
-It provides an execution and authorization boundary, but it may also become a natural unit for analyzing operational performance.
-
-Execution histories could eventually help answer questions about throughput, instrument utilization, failure rates and capacity bottlenecks.
-
-Those metrics would support decisions about staffing, instrumentation and expansion.
-
-The initial design needs only a clear workcell identity and scope. Reliable capacity optimization requires additional measurements and operational evidence.
-
-### Site: distributed laboratory operations
-
-The business context also informed my interest in multi-site support, including the London laboratory expansion.
-
-If protein characterization is delivered as a service, customers should not necessarily need to understand which physical laboratory performs their experiment.
-
-This suggests separating customer-facing experimental intent from the site and workcell responsible for execution.
-
-Making site identity explicit from the beginning helps preserve physical custody boundaries and allows future operational assignment across facilities.
-
-However, cross-site inventory movement, logistics, custody transfer and scheduling remain separate capabilities rather than consequences of simply adding a site identifier.
-
-### Tenant: a potential software product boundary
-
-Multi-tenancy reflects a longer-term product possibility informed by my experience building operational systems.
-
-Software developed to coordinate high-throughput physical operations can become valuable independently of the physical service itself.
-
-The management and information layer might eventually be offered as a separate SaaS product, allowing other organizations to benefit from the operational knowledge embedded in the platform.
-
-This is a strategic possibility, not a claim about Adaptyv's current plans.
-
-I therefore consider tenant ownership worth distinguishing from physical site and workcell boundaries.
-
-A tenant represents an organizational and security boundary, while a site represents physical custody and a workcell represents operational execution capacity.
-
-Basic scoping can be modeled early. Full multi-tenant security, cross-organization collaboration and distributed operations require additional implementation and verification.
-
-## 8. Deliberate boundaries and alternatives
-
-I did not aim to recreate a complete LIMS, ELN, manufacturing execution system or workflow orchestration platform.
-
-The intended scope is an inventory foundation that can reliably account for physical materials and preserve their operational and scientific provenance.
-
-I considered two broad alternatives to the shared specification-driven design.
-
-**Dedicated structures for every operation** would be simpler for individual cases, but risk duplicating execution, acceptance, correction and provenance mechanisms.
-
-**A fully generic workflow or rules engine** would provide more configurability, but introduce substantial complexity beyond the requirements and weaken the clarity of the correctness boundary.
-
-I chose versioned, declarative specifications backed by explicit trusted handlers as a middle ground.
-
-The design retains important limitations: not every operation is implemented, arbitrary workflow replanning is excluded, and future operational scale may justify more specialized persistence or execution paths.
-
-The ADRs document these choices, their alternatives and their trade-offs. They are explanations of design intent, not proof that the implementation satisfies every invariant.
-
-That evidence must come from SQL constraints, transactional handlers, integration tests and demonstrated failure recovery.
-
-## 9. Engineering objective
-
-The design reflects three complementary influences.
-
-My logistics experience taught me to treat physical inventory as an accounting and reconciliation problem.
-
-My semiconductor laboratory experience taught me to distinguish operational intent, execution, experimental evidence and scientific interpretation—especially when instruments fail or results are reprocessed.
-
-My research into Adaptyv and wet-lab software helped me adapt those lessons to biological identity, sample preparation and scientific provenance.
-
-My database experience informed the choice to combine a strongly relational correctness core with versioned, flexible operational contracts.
-
-The result is a deliberately bounded specification-driven architecture: **rigid where correctness is essential, flexible where laboratory procedures evolve, and capable of incremental specialization when real operational evidence justifies it.**
-
-The goal is not maximum abstraction. It is to make physical inventory, experimental history and scientific conclusions trustworthy while allowing the laboratory's operations to change.
+The ADRs explain why I made these choices. The SQL constraints, transactional handlers, and tests are where I tried to demonstrate that they actually hold.
