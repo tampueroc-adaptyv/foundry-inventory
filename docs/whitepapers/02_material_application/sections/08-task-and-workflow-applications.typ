@@ -10,7 +10,9 @@ A transfer schema binds a source ContainerContent, destination holding or compat
 
 Outcome verification establishes the actual transfer, not merely command acceptance. Required checkpoints distinguish physical confirmation from movement commitment and execution resolution. CommitRules permit only evidenced movements; a newly required ContainerContent and the associated transfer postings may form one supported atomic effect group.
 
-Confirmed partial transfer is represented even if the requested transfer fails. A timeout enters an explicit unresolved state. Required movement commitments precede completion; an idempotent commitment request does not make a physical retry safe. Cases 1, 2, and 9 in @material-cases exercise these obligations.
+Confirmed partial transfer is represented even if the requested transfer fails. Failure or cancellation does not reverse committed effects or prove that no physical action occurred. A timeout enters an explicit unresolved state: missing acknowledgment proves neither non-occurrence nor success. Further evidence, authorized observation, or reconciliation resolves the uncertainty; unverified outcomes are not posted as confirmed movements.
+
+Required movement commitments precede completion. Repeated commitment requests for the same logical effect must not duplicate postings. Repeating an instrument command may instead move more material: a physical retry requires known conditions permitted by the lifecycle contract or explicit authorization as a distinct action (#link("../01_algebra_foundation/algebra.pdf")[Foundations, Section V.G]). Cases 1, 2, and 9 in @material-cases exercise these obligations.
 
 == Composite Preparation
 

@@ -1,9 +1,15 @@
 #import "paper.typ": paper
 
 #show: paper.with(
-  title: [Laboratory Domain Model — Material and Inventory Operations — Draft v1.9],
+  title: [
+    #set par(justify: false)
+    Foundry Inventory — Material & Inventory Operations \
+    #text(size: 14pt)[Scientific Identity, Physical Accounting & Operational Correctness] \
+    #text(size: 11pt)[Tomás Ampuero \
+    November 3, 2026]
+  ],
   abstract: [
-    This specification applies Laboratory Operations Algebra — Foundations to material and inventory operations. It derives scientific identity, physical containment, accountable quantities, decisions, and operational eligibility from the foundational primitives and state model. Versioned MaterialSpecifications and ContainerSpecifications define identity and compatibility boundaries; provenance and composition remain distinct from available stock. Immutable, balanced material movements establish quantity correctness and distinguish historical correction from physical reconciliation. Concrete task and workflow applications connect scientific and physical evidence to authorized effects, including partial failure and uncertain execution. Twelve detailed conformance cases and implementation-mapping obligations support evaluation at both foundational and material-domain levels. The material-accounting constraints supplement, rather than redefine or weaken, the foundational guarantees.
+    This specification applies Foundry Operations Algebra — Foundations to material and inventory operations. It derives scientific identity, physical containment, accountable quantities, decisions, and operational eligibility from the foundational primitives and state model. Versioned MaterialSpecifications and ContainerSpecifications define identity and compatibility boundaries; provenance and composition remain distinct from available stock. Immutable, balanced material movements establish quantity correctness and distinguish historical correction from physical reconciliation. Concrete task and workflow applications connect scientific and physical evidence to authorized effects, including partial failure and uncertain execution. Twelve detailed conformance cases and implementation-mapping obligations support evaluation at both foundational and material-domain levels. The material-accounting constraints supplement, rather than redefine or weaken, the foundational guarantees.
   ],
   index-terms: (
     "Material identity",
@@ -15,5 +21,7 @@
     "Conformance",
   ),
 )
+
+#set document(title: "Foundry Inventory — Material & Inventory Operations", author: "Tomás Ampuero", date: datetime(year: 2026, month: 11, day: 3))
 
 #include "material-inventory-content.typ"

@@ -1,6 +1,6 @@
 = Scope and Algebraic Foundation <material-scope>
 
-This specification derives the material and inventory specialization of #link("../01_algebra_foundation/algebra.pdf")[Foundations, Section I], Draft v1.7. It covers scientific identity, containment, quantities, provenance, composition, material decisions, operational eligibility, and the laboratory operations that change them.
+This specification derives the material and inventory specialization of #link("../01_algebra_foundation/algebra.pdf")[Foundry Operations Algebra — Foundations, Section I], v1.7 (hereafter *Foundations*). It covers scientific identity, containment, quantities, provenance, composition, material decisions, operational eligibility, and the laboratory operations that change them.
 
 The foundational algebra defines the general semantics and correctness requirements for modeling laboratory operations. Domain models specialize its primitives, state structures, operations, and invariants. A domain specialization may introduce additional constraints but must not weaken or contradict the foundational guarantees.
 
@@ -28,5 +28,9 @@ The following mapping applies the derivation method (#link("../01_algebra_founda
   [Event], [Transfer confirmations, observations, checkpoint results, and execution transitions],
   [Effect], [Identity or content creation, placement changes, committed movement postings, and decision changes],
 )
+
+A TaskSchema is a versioned operation contract: typed inputs and outputs, resource requirements and preconditions, permitted effect families, and a mandatory lifecycle with states, transitions, checkpoints, and CommitRules. A TaskExecution is one invocation, recording the bound schema version, actual inputs and outputs, actors, lifecycle history, checkpoint evidence, and proposed and committed effect references. A schema defines intended work; an execution records what happened (#link("../01_algebra_foundation/algebra.pdf")[Foundations, Sections IV–V]).
+
+CommitRules govern when an execution may propose effects and which commitments are required for completion. Only the domain responsible for the affected state validates and commits those effects, checking evidence, authority, and invariants against current authoritative state. An instrument success response or execution status cannot substitute for required commitments.
 
 ContainerContent is an identifiable holding, not a second scientific Material. A committed MaterialMovement is an immutable record of an accepted quantity Effect, not evidence by itself that a physical action occurred. Decisions have their own scope and authority even when they govern material use.

@@ -1,7 +1,7 @@
 #import "@preview/charged-ieee:0.1.4": ieee
 
 #let paper(title: none, abstract: none, index-terms: (), body) = {
-  show: ieee.with(title: title, abstract: abstract, index-terms: index-terms)
+  show: ieee.with(title: block(width: 100%, title), abstract: abstract, index-terms: index-terms)
 
   // Keep the source's unnumbered equations and size wide expressions to a column.
   set math.equation(numbering: none)
