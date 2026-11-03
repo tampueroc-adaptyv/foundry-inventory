@@ -5,21 +5,21 @@
 1. **Identity & Inventory** — separate scientific identity, holdings, placement, and accepted consequences.
    [Editable Excalidraw](01-identity-inventory.excalidraw) · [PNG](01-identity-inventory.png)
 
-   ![Foundry Inventory — Identity & Inventory](01-identity-inventory.png)
+   [![Foundry Inventory — Identity & Inventory](01-identity-inventory.png)](01-identity-inventory.png)
 
-2. **Failure-Safe Transfer** — a requested 20 µL transfer times out; late evidence confirms 12 µL, leaving recorded quantities 88/12 and the execution Failed.
-   [Editable Excalidraw](03-transfer-recovery.excalidraw) · [PNG](03-transfer-recovery.png)
-
-   ![Foundry Inventory — Failure-Safe Transfer](03-transfer-recovery.png)
-
-3. **Accounting & Traceability** — the selective 11-table accounting and traceability spine.
+2. **Accounting & Traceability** — the selective 11-table accounting and traceability spine.
    [Editable Excalidraw](02-accounting-traceability.excalidraw) · [PNG](02-accounting-traceability.png)
 
-   ![Foundry Inventory — Accounting & Traceability](02-accounting-traceability.png)
+   [![Foundry Inventory — Accounting & Traceability](02-accounting-traceability.png)](02-accounting-traceability.png)
+
+3. **Failure-Safe Transfer** — a requested 20 µL transfer times out; late evidence confirms 12 µL, leaving recorded quantities 88/12 and the execution Failed.
+   [Editable Excalidraw](03-transfer-recovery.excalidraw) · [PNG](03-transfer-recovery.png)
+
+   [![Foundry Inventory — Failure-Safe Transfer](03-transfer-recovery.png)](03-transfer-recovery.png)
 
 4. **Physical Database Schema** — the complete 19-table / 35-FK reference in [the editable appendix](appendix/foundry-inventory.excalidraw).
 
-The appendix document contains all three new named frames **to the right of the existing diagrams**. The original physical ERD and original conceptual frame are retained unchanged. Each standalone Excalidraw file contains one frame and can be exported independently. PNG is the only exported image format; the existing PNGs and all editable source contents are unchanged. Numbered filenames identify the views; the presentation order above introduces the failure story before the relational detail.
+The appendix document also contains the three focused views to the right of the original physical ERD and conceptual frame. Each standalone Excalidraw file contains one frame, with a PNG export linked above. For the engineering context behind these views, see [Engineering Approach & Design Rationale](../motivation.md).
 
 ## Read the notation
 
@@ -30,8 +30,6 @@ The appendix document contains all three new named frames **to the right of the 
 Postings are authoritative; balances are transactionally maintained, rebuildable projections. Recorded quantity is not an eligibility decision.
 
 ## Verification and implementation sources
-
-Diagram specification: [Design Review and Diagram Strategy](../../design-review-context.md).
 
 - [001_schema.sql](../../src/migrations/001_schema.sql): table types, tenant-composite PKs/FKs, placement/posting XOR, active holding uniqueness, movement/member uniqueness, reversal and compensation uniqueness, balance initialization, immutable history.
 - [002_handlers.sql](../../src/migrations/002_handlers.sql): deferred balanced-ledger enforcement, acceptance retry comparisons, unknown versus confirmed settlement, positive external fencing, terminal outcomes and late recovery.

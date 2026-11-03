@@ -26,6 +26,10 @@ I was already familiar with the importance of separating inventory movements fro
 
 This influenced the decision to use an immutable double-entry ledger, with `MaterialMovement` and `MaterialPosting` as authoritative records and `MaterialBalance` as a transactionally maintained, rebuildable projection.
 
+The diagram below shows how the relational model supports quantity accounting and traceability. I rely on database constraints and governed operations to preserve the accounting invariants.
+
+[![Accounting & Traceability — authoritative ledger records and rebuildable balances](diagrams/02-accounting-traceability.png)](diagrams/02-accounting-traceability.png)
+
 I had also experienced the limitations of operational software firsthand. In one warehouse system, querying inventory by lot and expiration date became problematic, leading us to use a workaround involving sink accounts.
 
 That experience reinforced the importance of accommodating operational exceptions and evolving information requirements. It also highlighted the need to distinguish flexibility in accounting operations from flexibility in accounting correctness.
@@ -165,6 +169,12 @@ A new measurement Task can acquire additional evidence. A subsequent interpretat
 The original evidence and interpretation remain immutable.
 
 Likewise, inventory corrections use attributable compensating or replacement postings rather than modifying historical ledger entries.
+
+The example below illustrates why I separate execution outcomes from inventory consequences: a requested transfer of 20 µL has an uncertain outcome, and the execution is recorded as failed. Later evidence confirms that 12 µL physically moved; the ledger records that confirmed quantity without rewriting the historical execution outcome.
+
+[![Failure-Safe Transfer — late confirmation of 12 µL after a failed execution](diagrams/03-transfer-recovery.png)](diagrams/03-transfer-recovery.png)
+
+Failure does not imply physical rollback. For retry safety, I distinguish API idempotency from repeating a laboratory action: deduplicating a request does not make another physical transfer safe. The diagram shows separate database transactions around the laboratory action, not one transaction spanning the workflow.
 
 Scientific corrections and inventory corrections are related but distinct.
 

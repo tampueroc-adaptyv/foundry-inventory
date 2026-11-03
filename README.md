@@ -14,21 +14,11 @@ The system separates scientific identity, physical containment, inventory accoun
 
 ## Architecture
 
-The design is organized around several core principles:
+The implemented model separates scientific `Material` identity from physical `Container`s and accountable holdings. Intended `Task`s, execution attempts and accepted consequences have separate identities. Quantity accounting is distinct from operational eligibility: a recorded balance does not by itself mean material can be used.
 
-| Principle | Design |
-|---|---|
-| **Scientific identity** | Materials are distinct from their physical containers and accountable holdings. |
-| **Inventory accounting** | Immutable, balanced movements establish quantity history; balances are derived projections. |
-| **Physical containment** | Containers, locations, and placements describe where material resides independently of its scientific identity. |
-| **Provenance** | Scientific derivation is distinct from physical transfer, allowing supported transformations to retain traceable origins. |
-| **Operational eligibility** | Recorded quantity does not imply usability. QC, expiration, restrictions, and intended use govern eligibility. |
-| **Execution and effects** | Intended work, actual execution, accepted evidence, and committed inventory consequences are separate concerns. |
-| **Historical integrity** | Corrections preserve earlier records instead of silently rewriting them. |
+[![Identity & Inventory — scientific identity, physical holdings and accepted consequences](docs/diagrams/01-identity-inventory.png)](docs/diagrams/01-identity-inventory.png)
 
-The underlying design follows a specification-driven approach: stable relational structures enforce identity and accounting guarantees, while versioned contracts and governed JSONB accommodate variation between laboratory operations.
-
-PostgreSQL serves as the transactional authority for the implemented inventory domain.
+Explore the [complete diagram index](docs/diagrams/README.md) and [engineering design rationale](docs/motivation.md).
 
 ### Design Artifacts
 
@@ -37,8 +27,6 @@ The architecture is documented at three complementary levels:
 - **[Formal specifications](docs/whitepapers/):** Define the domain semantics, state transitions, and invariants.
 - **[Architecture Decision Records](docs/decisions/):** Explain architectural choices, alternatives, and trade-offs.
 - **Implementation and tests:** Demonstrate which guarantees are enforced by the delivered PostgreSQL system.
-
-See [Architecture Diagrams](docs/diagrams/README.md) for visual representations of the conceptual model, relational schema, and transfer-recovery behavior.
 
 ## Implementation and Validation
 
